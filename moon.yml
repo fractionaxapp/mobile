@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+layer: "application"
+language: "typescript"
+stack: "frontend"
+tags: ["ts", "mobile", "app"]
+toolchains:
+  default: ["node"]
+project:
+  name: "mobile"
+  description: "FractionAX mobile app (Expo / React Native)."
+dependsOn:
+  - "core"
+
+fileGroups:
+  sources:
+    - "*.ts"
+    - "*.tsx"
+    - "app.json"
+
+# Expo builds run via EAS/native tooling, not in CI; the gate is lint + typecheck.
+tasks:
+  lint:
+    command: "pnpm exec eslint ."
+    inputs:
+      - "@group(sources)"
+      - "eslint.config.mjs"
+  typecheck:
+    command: "pnpm exec tsc --noEmit"
+    deps:
+      - "^:build"
+    inputs:
+      - "@group(sources)"
+      - "tsconfig.json"
