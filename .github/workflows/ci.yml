@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# This app depends on the @fractionax/* workspace packages, so it cannot build in
+# isolation. CI reconstructs the fractionaxapp meta-monorepo, checks out the
+# triggering commit into apps/mobile, and runs its tasks via moon. Cross-repo access
+# uses the shared GitHub App; the App ID is inlined and only the private key is a
+# secret. Native/EAS builds run separately — CI is lint + typecheck.
+jobs:
+  ci:
+    name: Lint, typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint a cross-repo token from the GitHub App
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: "4090077"
+          private-key: ${{ secrets.MONOREPO_APP_PRIVATE_KEY }}
+          owner: fractionaxapp
+          repositories: |
+            fractionaxapp
+            mobile
+
+      - name: Check out meta-monorepo
+        uses: actions/checkout@v5
+        with:
+          repository: fractionaxapp/fractionaxapp
+          submodules: recursive
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Check out the triggering mobile commit
+        run: |
+          cd apps/mobile
+          git fetch origin "${MOBILE_SHA}"
+          git checkout "${MOBILE_SHA}"
+        env:
+          MOBILE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install proto toolchains
+        uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+
+      - name: Restore moon and dependency caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            .moon/cache
+            ~/.local/share/pnpm/store
+          key: ci-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ci-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Lint and typecheck the mobile app
+        run: moon run mobile:lint mobile:typecheck
