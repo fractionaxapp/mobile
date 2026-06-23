@@ -10,7 +10,7 @@ export default function App() {
     <View style={styles.container}>
       <Text style={styles.title}>FractionAX</Text>
       <Text>
-        Fractional ownership from ${minDollars.toLocaleString()} {MIN_INVESTMENT.currency}.
+        Fractional ownership from {`$${minDollars.toLocaleString()} ${MIN_INVESTMENT.currency}`}.
       </Text>
       <StatusBar style="auto" />
     </View>
